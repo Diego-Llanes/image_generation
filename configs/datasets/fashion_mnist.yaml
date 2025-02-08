@@ -1,0 +1,3 @@
+_target_: dataset.FashionMNISTDataset
+data_dir: data/fashion_mnist/
+normalize: true
