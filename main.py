@@ -53,9 +53,18 @@ def get_gan_runner(
         )
 
     def g_objective_fn(preds, targets):
-        return 1 - torch.nn.functional.binary_cross_entropy(
+        return torch.nn.functional.binary_cross_entropy(
             preds.squeeze(), targets.squeeze()
         )
+
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    logger.info(f"Running on device: {device}")
 
     runner = GANRunner(
         dataloader=dataloader,
@@ -66,9 +75,7 @@ def get_gan_runner(
         ),
         d_objective_fn=d_objective_fn,
         g_objective_fn=g_objective_fn,
-        device=torch.device(
-            "cuda" if torch.cuda.is_available() and not config.debug else "cpu"
-        ),
+        device=device,
     )
 
     return runner
@@ -146,7 +153,11 @@ def main(config: sk.Config):
             style="ggplot",
         )
 
-        logger.log_figure(fig, f"fake_vs_real_epoch_{epoch}")
+        if config.logger in ["wandb", "tensorboard", "mlflow"]:
+            # these loggers track images across time and have no need for stepping
+            logger.log_figure(fig, f"fake_vs_real")
+        else:
+            logger.log_figure(fig, f"fake_vs_real_epoch_{epoch}")
 
         logger.info(f"Epoch {epoch} completed")
 

@@ -9,7 +9,7 @@ _target_: models.gan.GAN
 generator:
   _target_: models.nn.MLP
   input_size: 784   # 28x28
-  hidden_sizes: [512, 512]
+  hidden_sizes: [784]
   output_size: 784
   classification: false
   generator: true
@@ -17,7 +17,7 @@ generator:
 discriminator:
   _target_: models.nn.MLP
   input_size: 784   # 28x28
-  hidden_sizes: [512, 512]
+  hidden_sizes: [784]
   output_size: 1
   classification: true
   generator: false

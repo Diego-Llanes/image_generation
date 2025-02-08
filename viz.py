@@ -15,11 +15,11 @@ def plot_fake_vs_real(
     with plt.style.context(style):
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
 
-        ax[0].imshow(fake_image)
+        ax[0].imshow(fake_image, cmap="gray")
         ax[0].set_title("Fake Image")
         ax[0].axis("off")
 
-        ax[1].imshow(real_image)
+        ax[1].imshow(real_image, cmap="gray")
         ax[1].set_title("Real Image")
         ax[1].axis("off")
 

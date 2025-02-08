@@ -99,7 +99,7 @@ class GANRunner(RunnerProtocol):
         return d_loss.item()
 
     def train_generator(self, noise: torch.Tensor, train: bool = True) -> float:
-        fake_labels = torch.zeros(len(noise))
+        fake_labels = torch.ones(len(noise))
         noise = noise.to(self.gan.device)
         gen_preds, _ = self.gan(noise=noise)
         g_loss = self.g_objective_fn(gen_preds, fake_labels)

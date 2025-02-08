@@ -7,13 +7,13 @@ keyring:
     # diffusion: null
 
 ?debug: false
-epochs: 20
+epochs: 2000
 batch_size: 128
 arch: gan
 
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 0.001
+  lr: 0.0002
 
 # logger: mlflow
 # logger: tensorboard
@@ -22,8 +22,8 @@ logdir: logs
 
 # MLFlow Stuff
 checkpoint_dir: checkpoints/
-run_name: first_go
+run_name: things_sorta_work
 experiment: gans
 
 # This is the metric to optimize
-dev_metric: dev_loss
+dev_metric: dev_generator_loss
