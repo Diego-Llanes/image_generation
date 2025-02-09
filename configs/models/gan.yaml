@@ -1,19 +1,20 @@
 _target_: models.gan.GAN
-# generator:
-  # _target_: models.unet.UNet
-  # depth: 2
-  # # scaling_factor: 2.0
-  # in_channels: 1
-  # out_channels: 1
-
 generator:
-  _target_: models.nn.MLP
-  input_size: 784   # 28x28
-  hidden_sizes: [784]
-  output_size: 784
-  classification: false
-  generator: true
-
+  _target_: models.unet.UNet
+  depth: 4
+  # scaling_factor: 2.0
+  in_channels: 1
+  out_channels: 1
+  base_channels: 32
+#
+# generator:
+#   _target_: models.nn.MLP
+#   input_size: 784   # 28x28
+#   hidden_sizes: [784]
+#   output_size: 784
+#   classification: false
+#   generator: true
+#
 discriminator:
   _target_: models.nn.MLP
   input_size: 784   # 28x28

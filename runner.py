@@ -125,7 +125,7 @@ class GANRunner(RunnerProtocol):
         discriminator_loss = 0.0
         discriminator_acc = 0.0
 
-        with tqdm(total=len(self.dataloader), desc="g_L: - | d_L: - ") as pbar:
+        with tqdm(total=len(self.dataloader), desc="g_L: - | d_A: - ") as pbar:
             for batch_count, batch in enumerate(self.dataloader, start=1):
                 self.g_optimizer.zero_grad()
                 self.d_optimizer.zero_grad()
@@ -141,7 +141,7 @@ class GANRunner(RunnerProtocol):
                 discriminator_acc += _discriminator_acc
                 generator_loss += self.train_generator(noise, train=train)
                 pbar.set_description(
-                    f"g_L: {generator_loss / batch_count:.4f} | d_L: {discriminator_loss / batch_count:.4f}"
+                    f"g_L: {generator_loss / batch_count:.4f} | d_A: {discriminator_acc / batch_count:.4f}"
                 )
                 pbar.update(1)
 

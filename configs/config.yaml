@@ -12,21 +12,21 @@ batch_size: 128
 arch: gan
 
 datasets:
-- cifar10
-# - fashion_mnist
+# - cifar10
+- fashion_mnist
 
 optimizer:
   _target_: torch.optim.AdamW
   lr: 0.0005
 
+# --- Logging ---
 # logger: mlflow
 # logger: tensorboard
 logger: wandb
 logdir: logs
 
-# MLFlow Stuff
 checkpoint_dir: checkpoints/
-run_name: fashion_only
+run_name: fashion_only_unet
 experiment: gans
 
 # This is the metric to optimize

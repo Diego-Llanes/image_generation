@@ -51,7 +51,7 @@ class UpConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, depth=4, base_channels=64):
+    def __init__(self, in_channels, out_channels, depth=4, base_channels=1):
         super().__init__()
         # Down path
         self.down_path = nn.ModuleList()
@@ -81,6 +81,9 @@ class UNet(nn.Module):
         self.final_conv = nn.Conv2d(ch, out_channels, kernel_size=1)
 
     def forward(self, x):
+        if len(x.size()) == 3:
+            x = x.unsqueeze(1)
+
         skips = []
         for down in self.down_path:
             x, skip = down(x)
