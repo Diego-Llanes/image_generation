@@ -12,27 +12,37 @@ from viz import plot_fake_vs_real
 
 
 def get_datasets(config: sk.Config, logger: LoggerProtocol, split: str = "train"):
-    logger.info(f"loading fashion mnist {split} data...")
-    fashion_mnist = sk.instantiate(config.dataset.fashion_mnist, split=split)
+    datasets = []
+    if "fashion_mnist" in config.datasets:
+        logger.info(f"loading fashion mnist {split} data...")
+        fashion_mnist = sk.instantiate(config.dataset.fashion_mnist, split=split)
+        datasets.append(fashion_mnist)
 
-    logger.info(f"loading cifar10 {split} data...")
-    cifar10 = sk.instantiate(
-        config.dataset.cifar10,
-        normalizer=lambda x: (x - x.min()) / (x.max() - x.min()),
-        augs=[
-            # interpolate to 28x28 (same as fashion mnist)
-            lambda x: torch.nn.functional.interpolate(
-                x.unsqueeze(0), size=(28, 28), mode="bilinear", align_corners=False
-            ).squeeze(0),
-            # greyscale
-            lambda x: x.mean(dim=0),
-        ],
-        split=split,
-    )
+    if "cifar10" in config.datasets:
+        logger.info(f"loading cifar10 {split} data...")
+        cifar10 = sk.instantiate(
+            config.dataset.cifar10,
+            normalizer=lambda x: (x - x.min()) / (x.max() - x.min()),
+            augs=[
+                # interpolate to 28x28 (same as fashion mnist)
+                lambda x: torch.nn.functional.interpolate(
+                    x.unsqueeze(0), size=(28, 28), mode="bilinear", align_corners=False
+                ).squeeze(0),
+                # greyscale
+                lambda x: x.mean(dim=0),
+            ],
+            split=split,
+        )
+        datasets.append(cifar10)
+
+    if not datasets:
+        raise ValueError(
+            "No datasets provided\nPlease provide at least one dataset in the configuration file"
+        )
 
     logger.info("combining datasets...")
     mixed_dataset = MixedDataset(
-        datasets=[fashion_mnist, cifar10],
+        datasets=datasets,
         transforms=[],
         split=split,
     )
@@ -87,7 +97,7 @@ def main(config: sk.Config):
         config=config, run_name=config.run_name, experiment=config.experiment
     )
 
-    if config.debug:
+    if config.debug and False:
         logger.warning("Running in debug mode")
         logger.warning("Creating DEBUG datasets...")
         train_dataset, dev_dataset = (DebugDataset() for _ in range(2))
@@ -150,7 +160,6 @@ def main(config: sk.Config):
             fake_image=generated_sample,
             real_image=random_true_sample,
             show=False,
-            style="ggplot",
         )
 
         if config.logger in ["wandb", "tensorboard", "mlflow"]:

@@ -11,9 +11,13 @@ epochs: 2000
 batch_size: 128
 arch: gan
 
+datasets:
+- cifar10
+# - fashion_mnist
+
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 0.0002
+  lr: 0.0005
 
 # logger: mlflow
 # logger: tensorboard
@@ -22,7 +26,7 @@ logdir: logs
 
 # MLFlow Stuff
 checkpoint_dir: checkpoints/
-run_name: things_sorta_work
+run_name: fashion_only
 experiment: gans
 
 # This is the metric to optimize

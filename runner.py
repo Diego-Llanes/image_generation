@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from tqdm import tqdm
 
-from typing import Callable, Dict, Protocol, Union
+from typing import Callable, Dict, Protocol, Union, Tuple
 
 
 class RunnerProtocol(Protocol):
@@ -73,7 +73,7 @@ class GANRunner(RunnerProtocol):
 
     def train_discriminator(
         self, real_imgs: torch.Tensor, noise: torch.Tensor, train: bool = True
-    ) -> float:
+    ) -> Tuple[float, float]:
         real_labels = torch.ones(len(real_imgs))
         fake_labels = torch.zeros(len(noise))
 
@@ -92,11 +92,14 @@ class GANRunner(RunnerProtocol):
         else:
             d_loss = self.d_objective_fn(None, None, real_preds, real_labels)
 
+        correct = (real_preds > 0.5).sum().item() + (gen_preds < 0.5).sum().item()
+        overall_acc = correct / (len(real_preds) + len(gen_preds))
+
         if train:
             d_loss.backward()
             self.d_optimizer.step()
 
-        return d_loss.item()
+        return d_loss.item(), overall_acc
 
     def train_generator(self, noise: torch.Tensor, train: bool = True) -> float:
         fake_labels = torch.ones(len(noise))
@@ -120,11 +123,10 @@ class GANRunner(RunnerProtocol):
 
         generator_loss = 0.0
         discriminator_loss = 0.0
+        discriminator_acc = 0.0
 
-        num_real = 0
-        num_fake = 0
         with tqdm(total=len(self.dataloader), desc="g_L: - | d_L: - ") as pbar:
-            for batch in self.dataloader:
+            for batch_count, batch in enumerate(self.dataloader, start=1):
                 self.g_optimizer.zero_grad()
                 self.d_optimizer.zero_grad()
                 real_imgs, conditioning_variable = batch
@@ -132,25 +134,22 @@ class GANRunner(RunnerProtocol):
                     int(len(real_imgs) * (1 - percent_real)),
                     *real_imgs.shape[1:],
                 )
-                _num_real = len(real_imgs)
-                _num_fake = len(noise)
-
-                num_real += _num_real
-                num_fake += _num_fake
-
-                discriminator_loss += self.train_discriminator(
+                _discriminator_loss, _discriminator_acc = self.train_discriminator(
                     real_imgs, noise, train=train
                 )
+                discriminator_loss += _discriminator_loss
+                discriminator_acc += _discriminator_acc
                 generator_loss += self.train_generator(noise, train=train)
                 pbar.set_description(
-                    f"g_L: {generator_loss / num_fake:.4f} | d_L: {discriminator_loss / num_real:.4f}"
+                    f"g_L: {generator_loss / batch_count:.4f} | d_L: {discriminator_loss / batch_count:.4f}"
                 )
                 pbar.update(1)
 
         return {
-            "discriminator_loss": discriminator_loss / num_real,
-            "generator_loss": generator_loss / num_fake,
-            "loss": (discriminator_loss + generator_loss) / (num_real + num_fake),
+            "discriminator_loss": discriminator_loss / batch_count,
+            "generator_loss": generator_loss / batch_count,
+            "discriminator_acc": discriminator_acc / batch_count,
+            "loss": (discriminator_loss + generator_loss) / batch_count,
         }
 
     def inference(self, noise: Union[torch.Tensor, None] = None) -> torch.Tensor:

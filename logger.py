@@ -5,6 +5,7 @@ import skeletonkey as sk
 import pandas as pd
 import yaml
 import wandb
+import json
 
 from typing import Protocol
 import logging
@@ -167,7 +168,11 @@ class DebugWrapper(LoggerProtocol):
     def __init__(self, logger: logging.Logger):
         self._logger = logger
 
+    def _pretty_print(self, obj: dict) -> str:
+        return json.dumps(obj, indent=4)
+
     def log_metrics(self, metrics: dict, step: int = None) -> None:
+        self._logger.info(f"Metrics: {self._pretty_print(metrics)}")
         self._logger.warning("Metrics not logged in debug mode")
 
     def log_params(self, params: dict) -> None:
