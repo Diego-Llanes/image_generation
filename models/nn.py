@@ -1,6 +1,6 @@
 import torch
 
-from typing import List
+from typing import List, Union
 
 
 class MLP(torch.nn.Module):
@@ -9,6 +9,7 @@ class MLP(torch.nn.Module):
         input_size: int,
         hidden_sizes: List[int],
         output_size: int,
+        conditional_size: int = 0,
         activation: torch.nn.Module = torch.nn.ReLU(),
         classification: bool = False,
         generator: bool = False,
@@ -22,7 +23,7 @@ class MLP(torch.nn.Module):
         self.layers = torch.nn.ModuleList()
 
         # input and hidden layers
-        prev_size = input_size
+        prev_size = input_size + conditional_size
         for size in hidden_sizes:
             self.layers.append(torch.nn.Linear(prev_size, size))
             self.layers.append(activation)
@@ -36,10 +37,15 @@ class MLP(torch.nn.Module):
         elif classification:
             self.layers.append(torch.nn.Sigmoid())
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, cond: Union[torch.Tensor, None] = None
+    ) -> torch.Tensor:
         if len(x.shape) > 2:
             original_shape = x.shape
             x = x.view(x.size(0), -1)
+
+        if cond is not None:
+            x = torch.cat([x, cond], dim=-1)
 
         for layer in self.layers:
             x = layer(x)

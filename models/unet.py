@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Union
+
 
 class DownConvBlock(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size=3, padding=1, use_pool=True):
@@ -51,11 +53,18 @@ class UpConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, depth=4, base_channels=1):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        conditional_channels: int = 0,
+        depth: int = 4,
+        base_channels: int = 32,
+    ) -> None:
         super().__init__()
         # Down path
         self.down_path = nn.ModuleList()
-        prev_ch = in_channels
+        prev_ch = in_channels + conditional_channels
         ch = base_channels
         for _ in range(depth):
             self.down_path.append(DownConvBlock(prev_ch, ch, use_pool=True))
@@ -80,9 +89,15 @@ class UNet(nn.Module):
 
         self.final_conv = nn.Conv2d(ch, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(
+        self, x: torch.Tensor, cond: Union[None, torch.Tenrsor] = None
+    ) -> torch.Tensor:
         if len(x.size()) == 3:
             x = x.unsqueeze(1)
+
+        if cond is not None:
+            cond = cond.unsqueeze(2).unsqueeze(3).expand_as(x)
+            x = torch.cat([x, cond], dim=1)
 
         skips = []
         for down in self.down_path:

@@ -163,3 +163,53 @@ class GANRunner(RunnerProtocol):
 
         with torch.no_grad():
             return self.gan.generator(noise)
+
+
+class DiffusionRunner(Runner):
+    def __init__(
+        self,
+        dataloader: DataLoader,
+        diffusion_model: nn.Module,
+        optimizer: Optimizer,
+        objective_fn: Callable,
+        device: torch.device = torch.device("cpu"),
+    ) -> None:
+        super().__init__(dataloader, diffusion_model, optimizer, objective_fn)
+        self.device = device
+
+    def run_epoch(
+        self,
+        train: bool = True,
+    ) -> Dict:
+        self.model.train(train)
+        total_loss = 0.0
+
+        for batch in tqdm(self.dataloader):
+            self.optimizer.zero_grad()
+            x0, cond, t = batch
+            x0 = x0.to(self.device)
+            cond = cond.to(self.device)
+            t = t.to(self.device)
+            preds = self.model(x0, cond, t)
+            loss = self.objective_fn(*preds)
+            if train:
+                loss.backward()
+                self.optimizer.step()
+
+            total_loss += loss.item()
+
+        return {
+            "loss": total_loss / len(self.dataloader),
+        }
+
+    def inference(
+        self,
+        noise: torch.Tensor,
+        condition: Union[None, torch.Tensor] = None,
+    ) -> torch.Tensor:
+        self.model.eval()
+        self.model.to(self.device)
+        noise = noise.to(self.device)
+
+        with torch.no_grad():
+            return self.model.inference(noise, condition)

@@ -6,6 +6,7 @@ import random
 
 from dataset import MixedDataset, DebugDataset
 from models.gan import GAN
+from models.diffusion import DiffusionModel
 from runner import GANRunner, RunnerProtocol
 from logger import get_logger, LoggerProtocol
 from viz import plot_fake_vs_real
@@ -85,6 +86,35 @@ def get_gan_runner(
         ),
         d_objective_fn=d_objective_fn,
         g_objective_fn=g_objective_fn,
+        device=device,
+    )
+
+    return runner
+
+
+def get_diffusion_runner(
+    config: sk.Config,
+    diffusion: DiffusionModel,
+    logger: LoggerProtocol,
+    dataloader: torch.utils.data.DataLoader,
+) -> RunnerProtocol:
+    def objective_fn(preds, targets):
+        return torch.nn.functional.mse_loss(preds.squeeze(), targets.squeeze())
+
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    logger.info(f"Running on device: {device}")
+
+    runner = DiffusionRunner(
+        dataloader=dataloader,
+        diffusion=diffusion,
+        optimizer=sk.instantiate(config.optimizer, params=diffusion.parameters()),
+        objective_fn=objective_fn,
         device=device,
     )
 
