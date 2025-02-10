@@ -90,14 +90,17 @@ class UNet(nn.Module):
         self.final_conv = nn.Conv2d(ch, out_channels, kernel_size=1)
 
     def forward(
-        self, x: torch.Tensor, cond: Union[None, torch.Tenrsor] = None
+        self, x: torch.Tensor, cond: Union[None, torch.Tensor] = None
     ) -> torch.Tensor:
         if len(x.size()) == 3:
             x = x.unsqueeze(1)
 
         if cond is not None:
-            cond = cond.unsqueeze(2).unsqueeze(3).expand_as(x)
-            x = torch.cat([x, cond], dim=1)
+            if len(cond.shape) == 1:  # cond is (B,)
+                cond = cond.view(-1, 1, 1, 1)  # Reshape to (B, 1, 1, 1)
+            cond = cond.expand(-1, 1, x.size(2), x.size(3))  # Expand to (B, 1, H, W)
+
+            x = torch.cat([x, cond], dim=1)  # Concatenate along channel dimension
 
         skips = []
         for down in self.down_path:

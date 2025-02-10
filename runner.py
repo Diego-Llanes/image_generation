@@ -165,51 +165,84 @@ class GANRunner(RunnerProtocol):
             return self.gan.generator(noise)
 
 
-class DiffusionRunner(Runner):
+class DiffusionRunner(RunnerProtocol):
     def __init__(
         self,
         dataloader: DataLoader,
-        diffusion_model: nn.Module,
+        model: nn.Module,
         optimizer: Optimizer,
         objective_fn: Callable,
+        timesteps: int = 100,
+        beta_start: float = 1e-4,
+        beta_end: float = 0.02,
         device: torch.device = torch.device("cpu"),
     ) -> None:
-        super().__init__(dataloader, diffusion_model, optimizer, objective_fn)
+        super().__init__(dataloader, model, optimizer, objective_fn)
         self.device = device
+        self.timesteps = timesteps
 
-    def run_epoch(
-        self,
-        train: bool = True,
-    ) -> Dict:
+        self.beta = torch.linspace(beta_start, beta_end, timesteps).to(device)
+        self.alpha = (1 - self.beta).to(device)
+        self.alpha_bar = torch.cumprod(self.alpha, dim=0).to(device)
+
+        self.model = model
+        self.optimizer = optimizer
+        self.objective_fn = objective_fn
+        self.dataloader = dataloader
+
+    def q_sample(
+        self, x0: torch.Tensor, t: torch.Tensor, noise: Union[None, torch.Tensor] = None
+    ) -> torch.Tensor:
+        """Adds noise to the input image x0 at a given timestep t."""
+        if noise is None:
+            noise = torch.randn(x0.shape, device=self.device)
+        sqrt_alpha_bar = self.alpha_bar[t].view(-1, 1, 1, 1).sqrt()
+        sqrt_one_minus_alpha_bar = (1 - self.alpha_bar[t]).view(-1, 1, 1, 1).sqrt()
+        return sqrt_alpha_bar * x0 + sqrt_one_minus_alpha_bar * noise
+
+    def run_epoch(self, train: bool = True) -> Dict:
         self.model.train(train)
+        self.model.to(self.device)
         total_loss = 0.0
 
         for batch in tqdm(self.dataloader):
             self.optimizer.zero_grad()
-            x0, cond, t = batch
-            x0 = x0.to(self.device)
-            cond = cond.to(self.device)
-            t = t.to(self.device)
-            preds = self.model(x0, cond, t)
-            loss = self.objective_fn(*preds)
+            x0, cond = batch
+            t = torch.randint(0, self.timesteps, (x0.size(0),), device=self.device)
+            x0, cond, t = x0.to(self.device), cond.to(self.device), t.to(self.device)
+
+            x_t = self.q_sample(x0, t)
+            preds = self.model(x_t, t)
+            loss = self.objective_fn(preds, x0)
+
             if train:
                 loss.backward()
                 self.optimizer.step()
 
             total_loss += loss.item()
 
-        return {
-            "loss": total_loss / len(self.dataloader),
-        }
+        return {"loss": total_loss / len(self.dataloader)}
 
     def inference(
         self,
-        noise: torch.Tensor,
-        condition: Union[None, torch.Tensor] = None,
+        noise: Union[torch.Tensor, None] = None,
+        condition: Union[torch.Tensor, None] = None,
     ) -> torch.Tensor:
+        """Performs the full denoising process, starting from noise."""
+
+        if noise is None:
+            # attempt to infer the input size from the dataset
+            in_out_size = self.dataloader.dataset.get_in_out_size
+            noise = torch.randn(1, *in_out_size[0]).to(self.device)
+
         self.model.eval()
-        self.model.to(self.device)
         noise = noise.to(self.device)
 
         with torch.no_grad():
-            return self.model.inference(noise, condition)
+            for i in range(self.timesteps - 1, -1, -1):
+                pred_noise = self.model(noise, torch.tensor([i], device=self.device))
+                noise = self.q_sample(
+                    noise, torch.tensor([i], device=self.device), pred_noise
+                )
+
+        return noise

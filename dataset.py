@@ -54,7 +54,7 @@ class FashionMNISTDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         # return image, label
-        return self.data[idx][1:].reshape(1, 28, 28), self.labels[idx]
+        return self.data[idx][1:].reshape(1, 28, 28).float(), self.labels[idx].float()
 
     @cached_property
     def get_in_out_size(self):
@@ -115,7 +115,7 @@ class CIFAR10Dataset(Dataset):
             for aug in self.augs:
                 img = aug(img)
         # return image, label
-        return img, self.labels[idx]
+        return img.float(), self.labels[idx].float()
 
     def get_in_out_size(self):
         return self[0][0].shape, self.num_classes

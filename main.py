@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import skeletonkey as sk
 
 from pathlib import Path
@@ -6,8 +7,7 @@ import random
 
 from dataset import MixedDataset, DebugDataset
 from models.gan import GAN
-from models.diffusion import DiffusionModel
-from runner import GANRunner, RunnerProtocol
+from runner import GANRunner, RunnerProtocol, DiffusionRunner
 from logger import get_logger, LoggerProtocol
 from viz import plot_fake_vs_real
 
@@ -26,11 +26,11 @@ def get_datasets(config: sk.Config, logger: LoggerProtocol, split: str = "train"
             normalizer=lambda x: (x - x.min()) / (x.max() - x.min()),
             augs=[
                 # interpolate to 28x28 (same as fashion mnist)
-                lambda x: torch.nn.functional.interpolate(
-                    x.unsqueeze(0), size=(28, 28), mode="bilinear", align_corners=False
-                ).squeeze(0),
+                # lambda x: torch.nn.functional.interpolate(
+                #     x.unsqueeze(0), size=(28, 28), mode="bilinear", align_corners=False
+                # ).squeeze(0),
                 # greyscale
-                lambda x: x.mean(dim=0),
+                # lambda x: x.mean(dim=0),
             ],
             split=split,
         )
@@ -94,27 +94,27 @@ def get_gan_runner(
 
 def get_diffusion_runner(
     config: sk.Config,
-    diffusion: DiffusionModel,
+    model: nn.Module,
     logger: LoggerProtocol,
     dataloader: torch.utils.data.DataLoader,
 ) -> RunnerProtocol:
     def objective_fn(preds, targets):
         return torch.nn.functional.mse_loss(preds.squeeze(), targets.squeeze())
 
-    if torch.backends.mps.is_available():
-        device = torch.device("mps")
-    elif torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
+    device = torch.device(
+        "mps"
+        if torch.backends.mps.is_available()
+        else "cuda" if torch.cuda.is_available() else "cpu"
+    )
 
     logger.info(f"Running on device: {device}")
 
     runner = DiffusionRunner(
         dataloader=dataloader,
-        diffusion=diffusion,
-        optimizer=sk.instantiate(config.optimizer, params=diffusion.parameters()),
+        model=model,
+        optimizer=sk.instantiate(config.optimizer, params=model.parameters()),
         objective_fn=objective_fn,
+        timesteps=100,
         device=device,
     )
 
@@ -150,9 +150,14 @@ def main(config: sk.Config):
             get_gan_runner(config, model, logger, dataloader)
             for dataloader in [train_dataloader, dev_dataloader]
         )
+    elif config.arch == "diffusion" or config.arch == "diff":
+        model = sk.instantiate(config.model.diffusion)
+        train_runner, dev_runner = (
+            get_diffusion_runner(config, model, logger, dataloader)
+            for dataloader in [train_dataloader, dev_dataloader]
+        )
     else:
-        # TODO: Add support for diffusion
-        raise ValueError(f"Unsupported architecture: {config.arch}")
+        raise ValueError(f"Unknown architecture: {config.arch}")
 
     best_dev_metric = float("inf")
     for epoch in range(config.epochs):

@@ -1,0 +1,6 @@
+_target_: models.unet.UNet
+depth: 2
+in_channels: 3 # RGB
+out_channels: 3
+conditional_channels: 1
+base_channels: 8

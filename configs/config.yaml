@@ -4,16 +4,16 @@ keyring:
     fashion_mnist: datasets/fashion_mnist.yaml
   model:
     gan: models/gan.yaml
-    # diffusion: null
+    diffusion: models/diffusion.yaml
 
 ?debug: false
 epochs: 2000
 batch_size: 128
-arch: gan
+arch: diff
 
 datasets:
-# - cifar10
-- fashion_mnist
+- cifar10
+# - fashion_mnist
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -26,8 +26,10 @@ logger: wandb
 logdir: logs
 
 checkpoint_dir: checkpoints/
-run_name: fashion_only_unet
-experiment: gans
+run_name: diff_test
+# experiment: gans
+experiment: diff
 
 # This is the metric to optimize
-dev_metric: dev_generator_loss
+# dev_metric: dev_generator_loss # for GANs
+dev_metric: dev_loss # for diff
